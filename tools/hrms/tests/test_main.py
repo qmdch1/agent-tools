@@ -8,6 +8,10 @@ def ask(query):
     return run({"query": query})["data"]
 
 
+def test_help_does_not_report_database_read():
+    assert "storage" not in run({"query": "도움말"})
+
+
 def test_employee_leave_and_replay():
     registration = "직원 등록 UNIT001 가상직원 연구팀 2024-02-29 2026 15"
     first = run({"query": registration})

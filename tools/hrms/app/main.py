@@ -34,6 +34,8 @@ def days_value(value):
 
 
 def result(answer, *, storage_action="read", record_type="인사 정보", record_id=None, **data):
+    if storage_action is None:
+        return {"answer": answer, "data": data}
     storage = {"action": storage_action, "record_type": record_type}
     if record_id is not None:
         storage["record_id"] = record_id
@@ -84,6 +86,7 @@ def run(input_data: dict) -> dict:
     if parts == ["도움말"]:
         return result(
             "직원 등록·조회, 부서별 인원, 연차 잔여·사용 기록을 관리합니다.",
+            storage_action=None,
             commands=[
                 "직원 등록 사번 이름 부서 입사일 연도 배정일수",
                 "직원 사번 조회",

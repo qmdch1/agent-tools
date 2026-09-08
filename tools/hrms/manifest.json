@@ -115,8 +115,7 @@
     },
     "required": [
       "answer",
-      "data",
-      "storage"
+      "data"
     ],
     "additionalProperties": false
   },
