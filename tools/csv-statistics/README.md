@@ -12,3 +12,5 @@ CLI: `python app/main.py`에 JSON을 stdin으로 전달합니다. 출력은 JSON
 
 운영 실행은 Agent Foundry의 관리형 non-root Docker sandbox를 사용합니다.
 독립 HTTP 서비스, 자체 Docker Compose, 데이터베이스가 필요하지 않습니다.
+
+생성 토큰은 실제 세션 사용량이 없어 Python 앱·테스트의 UTF-8 바이트 수를 4로 나눈 올림값으로 시작합니다. generation_tokens_estimated=true로 구분하며 화면에 생성 약 N 토큰으로 표시합니다. 이후 수정 집계는 최종 합계에 더하고 환산값 표시를 유지합니다.

@@ -114,5 +114,6 @@
     "timeout_seconds": 30,
     "memory_mb": 256,
     "cpu": 1
-  }
+  },
+  "generation_tokens_estimated": true
 }
