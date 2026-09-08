@@ -1,6 +1,6 @@
 {
   "name": "product-comparison",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "runtime": "python",
   "execution_type": "process",
   "entrypoint": "app/main.py",
@@ -137,6 +137,33 @@
             "type": "string",
             "minLength": 64,
             "maxLength": 64
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "enum": [
+                  "created",
+                  "updated",
+                  "reused",
+                  "read"
+                ]
+              },
+              "record_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "record_id": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "action",
+              "record_type"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -145,7 +172,8 @@
           "matched_count",
           "returned_count",
           "excluded",
-          "compare_id"
+          "compare_id",
+          "storage"
         ],
         "additionalProperties": false
       },
@@ -169,13 +197,41 @@
               "object",
               "null"
             ]
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "enum": [
+                  "created",
+                  "updated",
+                  "reused",
+                  "read"
+                ]
+              },
+              "record_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "record_id": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "action",
+              "record_type"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "compare_id",
           "found",
           "request",
-          "result"
+          "result",
+          "storage"
         ],
         "additionalProperties": false
       },
@@ -194,12 +250,40 @@
           },
           "offset": {
             "type": "integer"
+          },
+          "storage": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "enum": [
+                  "created",
+                  "updated",
+                  "reused",
+                  "read"
+                ]
+              },
+              "record_type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "record_id": {
+                "type": "string",
+                "maxLength": 200
+              }
+            },
+            "required": [
+              "action",
+              "record_type"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
           "comparisons",
           "has_more",
-          "offset"
+          "offset",
+          "storage"
         ],
         "additionalProperties": false
       }
@@ -296,7 +380,12 @@
         "matched_count": 1,
         "returned_count": 1,
         "excluded": [],
-        "compare_id": "4ee999dce173d15eb6827e7f2fd748d6a23acf022a63a088975696689fd15874"
+        "compare_id": "4ee999dce173d15eb6827e7f2fd748d6a23acf022a63a088975696689fd15874",
+        "storage": {
+          "action": "created",
+          "record_type": "상품 비교",
+          "record_id": "4ee999dce173d15eb6827e7f2fd748d6a23acf022a63a088975696689fd15874"
+        }
       }
     }
   ],

@@ -33,8 +33,11 @@ def days_value(value):
     return number
 
 
-def result(answer, **data):
-    return {"answer": answer, "data": data}
+def result(answer, *, storage_action="read", record_type="인사 정보", record_id=None, **data):
+    storage = {"action": storage_action, "record_type": record_type}
+    if record_id is not None:
+        storage["record_id"] = record_id
+    return {"answer": answer, "data": data, "storage": storage}
 
 
 def employee(conn, staff_id):
@@ -120,6 +123,9 @@ def run(input_data: dict) -> dict:
                 )
             return result(
                 f"{name}({staff_id})의 {year}년 인사 등록이 완료되었습니다.",
+                storage_action="created" if not old or not allocations else "reused",
+                record_type="직원·연차 배정",
+                record_id=f"{staff_id}:{year}",
                 **expected,
                 **{k: v for k, v in balance(conn, staff_id, year).items() if k != "staff_id"},
             )
@@ -166,6 +172,9 @@ def run(input_data: dict) -> dict:
                 )
             return result(
                 f"{staff_id}의 휴가 기록을 확인했습니다. 동일 요청은 한 번만 차감됩니다.",
+                storage_action="reused" if old else "created",
+                record_type="휴가 사용",
+                record_id=f"{staff_id}:{request_id}",
                 **balance(conn, staff_id, year),
                 request_id=request_id,
                 replayed=bool(old),

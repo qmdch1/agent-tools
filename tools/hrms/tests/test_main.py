@@ -10,11 +10,18 @@ def ask(query):
 
 def test_employee_leave_and_replay():
     registration = "직원 등록 UNIT001 가상직원 연구팀 2024-02-29 2026 15"
-    assert ask(registration)["remaining"] == 15
+    first = run({"query": registration})
+    assert first["data"]["remaining"] == 15
+    assert first["storage"]["action"] == "created"
+    assert run({"query": registration})["storage"]["action"] == "reused"
     assert ask(registration)["remaining"] == 15
     assert ask("직원 UNIT001 조회")["joined_on"] == "2024-02-29"
     assert ask("부서 연구팀 인원")["count"] == 1
-    assert ask("휴가 사용 UNIT001 2026 0.5 req01")["remaining"] == 14.5
+    leave = run({"query": "휴가 사용 UNIT001 2026 0.5 req01"})
+    assert leave["data"]["remaining"] == 14.5
+    assert leave["storage"]["action"] == "created"
+    assert run({"query": "휴가 사용 UNIT001 2026 0.5 req01"})["storage"]["action"] == "reused"
+    assert run({"query": "직원 UNIT001 조회"})["storage"]["action"] == "read"
     assert ask("휴가 사용 UNIT001 2026 0.5 req01")["replayed"] is True
     with pytest.raises(ValueError):
         ask("휴가 사용 UNIT001 2026 1 req01")

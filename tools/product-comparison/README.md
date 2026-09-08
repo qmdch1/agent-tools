@@ -26,3 +26,5 @@ Worker가 중앙 DB에 `tool_<program UUID hex>` 스키마와 제한된 역할�
 1.0.0에서 비교만 하고 저장하지 않은 과거 결과는 자동 복구되지 않습니다. 원본이 남아 있으면 1.1.0으로 다시 호출해 저장해야 합니다.
 
 `generation_tokens.txt`는 코드·테스트 UTF-8 바이트 수를 4로 나누어 올림한 생성 비용 대용값입니다. 실제 세션 청구 토큰이 아니며 manifest의 `generation_tokens_estimated=true`로 구분합니다. 후속 수정 비용은 정책에 따라 누적하고 최종 합계만 저장합니다.
+
+최상위 `storage`는 현재 호출의 DB 처리 결과를 보고합니다: `created` 신규 저장, `updated` 기존 값 변경, `reused` 같은 기록 재사용, `read` 조회. `record_type`과 선택적 `record_id`로 대상을 식별하며 실제 프로그램명은 메인 Registry에서 표시합니다. 트랜잭션 실패 시 성공 결과를 반환하지 않습니다. 이전 저장 결과 안의 상태는 현재 호출 상태가 아닙니다.

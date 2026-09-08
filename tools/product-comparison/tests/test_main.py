@@ -97,7 +97,11 @@ def test_sort_unknown_last_both_directions_and_limit():
 def test_input_unchanged_and_repeatable():
     data = sample()
     before = deepcopy(data)
-    assert run(data) == run(data)
+    first, second = run(data), run(data)
+    assert {k: v for k, v in first.items() if k != "storage"} == {
+        k: v for k, v in second.items() if k != "storage"
+    }
+    assert second["storage"]["action"] == "reused"
     assert data == before
 
 
@@ -134,7 +138,8 @@ def test_save_get_roundtrip_and_missing():
         "compare_id": result["compare_id"],
         "found": True,
         "request": data["payload"],
-        "result": result,
+        "result": {k: v for k, v in result.items() if k != "storage"},
+        "storage": {"action": "read", "record_type": "상품 비교", "record_id": result["compare_id"]},
     }
     missing = run({"payload": {"action": "get", "compare_id": "0" * 64}})
     assert missing["found"] is False and missing["result"] is None
@@ -145,7 +150,17 @@ def test_concurrent_save_is_idempotent_and_changed_input_new_snapshot():
     data["payload"]["products"][0]["id"] = "concurrent"
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: run(data), range(4)))
-    assert all(result == results[0] for result in results)
+    assert sorted(result["storage"]["action"] for result in results) == [
+        "created",
+        "reused",
+        "reused",
+        "reused",
+    ]
+    assert all(
+        {k: v for k, v in result.items() if k != "storage"}
+        == {k: v for k, v in results[0].items() if k != "storage"}
+        for result in results
+    )
     with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
         assert (
             conn.execute(
@@ -160,6 +175,7 @@ def test_concurrent_save_is_idempotent_and_changed_input_new_snapshot():
 def test_list_bounded_and_invalid_input_not_saved():
     result = run(sample())
     listing = run({"payload": {"action": "list", "limit": 100}})
+    assert listing["storage"]["action"] == "read"
     assert result["compare_id"] in [item["compare_id"] for item in listing["comparisons"]]
     assert len(run({"payload": {"action": "list", "limit": 1}})["comparisons"]) == 1
     assert run({"payload": {"action": "list", "offset": 10000}})["comparisons"] == []
@@ -188,3 +204,19 @@ def test_list_bounded_and_invalid_input_not_saved():
 def test_storage_input_validation(payload):
     with pytest.raises(ValueError):
         run({"payload": payload})
+
+
+def test_legacy_stored_notice_never_reports_new_write():
+    from psycopg.types.json import Jsonb
+
+    data = sample()
+    data["payload"]["products"][0]["id"] = "legacy-notice"
+    result = run(data)
+    with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+        conn.execute(
+            "UPDATE comparisons SET result_data=%s WHERE compare_id=%s", (Jsonb(result), result["compare_id"])
+        )
+    assert run(data)["storage"]["action"] == "reused"
+    fetched = run({"payload": {"action": "get", "compare_id": result["compare_id"]}})
+    assert fetched["storage"]["action"] == "read"
+    assert fetched["result"]["storage"]["action"] == "created"

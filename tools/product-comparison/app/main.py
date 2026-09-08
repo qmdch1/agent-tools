@@ -171,12 +171,20 @@ def run(input_data: dict) -> dict:
             require(len(rows) <= 1, "Duplicate comparison requires reconciliation")
             if rows:
                 require(rows[0][0] == payload, "Comparison identity conflict")
-                return rows[0][1]
-            conn.execute(
-                "INSERT INTO comparisons(compare_id, request_data, result_data, created_at) VALUES (%s,%s,%s,now())",
-                (compare_id, Jsonb(payload), Jsonb(result)),
-            )
-        return result
+                result = rows[0][1]
+            else:
+                conn.execute(
+                    "INSERT INTO comparisons(compare_id, request_data, result_data, created_at) VALUES (%s,%s,%s,now())",
+                    (compare_id, Jsonb(payload), Jsonb(result)),
+                )
+        return {
+            **result,
+            "storage": {
+                "action": "reused" if rows else "created",
+                "record_type": "상품 비교",
+                "record_id": compare_id,
+            },
+        }
     if action == "get":
         require(set(data) == {"action", "compare_id"}, "Get requires compare_id only")
         compare_id = data["compare_id"]
@@ -193,6 +201,7 @@ def run(input_data: dict) -> dict:
             "found": bool(rows),
             "request": rows[0][0] if rows else None,
             "result": rows[0][1] if rows else None,
+            "storage": {"action": "read", "record_type": "상품 비교", "record_id": compare_id},
         }
     require(set(data) <= {"action", "limit", "offset"}, "Unknown list option")
     limit, offset = data.get("limit", 20), data.get("offset", 0)
@@ -215,6 +224,7 @@ def run(input_data: dict) -> dict:
         ],
         "has_more": len(rows) > limit,
         "offset": offset,
+        "storage": {"action": "read", "record_type": "상품 비교 목록"},
     }
 
 

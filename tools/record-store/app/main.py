@@ -18,6 +18,7 @@ def run(input_data: dict) -> dict:
         not isinstance(input_data["value"], str) or len(input_data["value"]) > 10000
     ):
         raise ValueError("Value must be text of at most 10000 characters")
+    action = "read"
     with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
         if "value" in input_data:
             # Serialize replacement by schema/key without a key constraint or a global table lock.
@@ -25,15 +26,27 @@ def run(input_data: dict) -> dict:
                 "SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || ':' || %s, 0))",
                 (key,),
             )
-            conn.execute("DELETE FROM records WHERE record_key=%s", (key,))
-            conn.execute(
-                "INSERT INTO records(record_key,record_value) VALUES (%s,%s)",
-                (key, input_data["value"]),
-            )
+            old = conn.execute(
+                "SELECT record_value FROM records WHERE record_key=%s LIMIT 2", (key,)
+            ).fetchall()
+            if len(old) > 1:
+                raise ValueError("Duplicate record requires reconciliation")
+            action = "created" if not old else "reused" if old[0][0] == input_data["value"] else "updated"
+            if action != "reused":
+                conn.execute("DELETE FROM records WHERE record_key=%s", (key,))
+                conn.execute(
+                    "INSERT INTO records(record_key,record_value) VALUES (%s,%s)",
+                    (key, input_data["value"]),
+                )
         rows = conn.execute("SELECT record_value FROM records WHERE record_key=%s LIMIT 2", (key,)).fetchall()
         if len(rows) > 1:
             raise ValueError("Duplicate record requires reconciliation")
-        return {"key": key, "found": bool(rows), "value": rows[0][0] if rows else None}
+    return {
+        "key": key,
+        "found": bool(rows),
+        "value": rows[0][0] if rows else None,
+        "storage": {"action": action, "record_type": "문자열 기록", "record_id": key},
+    }
 
 
 if __name__ == "__main__":

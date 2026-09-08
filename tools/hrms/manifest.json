@@ -1,6 +1,6 @@
 {
   "name": "hrms",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "runtime": "python",
   "execution_type": "process",
   "entrypoint": "app/main.py",
@@ -84,11 +84,39 @@
       },
       "data": {
         "type": "object"
+      },
+      "storage": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "created",
+              "updated",
+              "reused",
+              "read"
+            ]
+          },
+          "record_type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "record_id": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "action",
+          "record_type"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [
       "answer",
-      "data"
+      "data",
+      "storage"
     ],
     "additionalProperties": false
   },
@@ -122,6 +150,10 @@
         "data": {
           "total": 0,
           "departments": []
+        },
+        "storage": {
+          "action": "read",
+          "record_type": "인사 정보"
         }
       }
     },
@@ -135,6 +167,10 @@
         "data": {
           "department": "가상팀",
           "count": 0
+        },
+        "storage": {
+          "action": "read",
+          "record_type": "인사 정보"
         }
       }
     }
