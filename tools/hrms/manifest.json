@@ -1,0 +1,147 @@
+{
+  "name": "hrms",
+  "version": "1.0.0",
+  "runtime": "python",
+  "execution_type": "process",
+  "entrypoint": "app/main.py",
+  "visibility": "public",
+  "side_effects": false,
+  "description": "HRMS 인사관리 직원 등록 조회 부서 인원 인사 요약 연차 잔여 휴가 사용 기록. 승인된 연차 배정을 기준으로 계산하고 동일 휴가 요청의 중복 차감을 막습니다. 가상 데이터로 검증한 인사 담당자용 기본 HRMS.",
+  "requires_db": true,
+  "network": "database",
+  "tables": [
+    {
+      "name": "employees",
+      "columns": {
+        "staff_id": "text",
+        "name": "text",
+        "department": "text",
+        "joined_on": "text"
+      },
+      "indexes": [
+        [
+          "staff_id"
+        ],
+        [
+          "department"
+        ]
+      ]
+    },
+    {
+      "name": "allowances",
+      "columns": {
+        "staff_id": "text",
+        "leave_year": "integer",
+        "granted_days": "numeric"
+      },
+      "indexes": [
+        [
+          "staff_id",
+          "leave_year"
+        ]
+      ]
+    },
+    {
+      "name": "leave_events",
+      "columns": {
+        "staff_id": "text",
+        "leave_year": "integer",
+        "days": "numeric",
+        "request_id": "text"
+      },
+      "indexes": [
+        [
+          "staff_id",
+          "request_id"
+        ],
+        [
+          "staff_id",
+          "leave_year"
+        ]
+      ]
+    }
+  ],
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "직원 등록 사번 이름 부서 입사일 연도 배정일수 / 직원 사번 조회 / 부서 부서명 인원 / 연차 사번 연도 잔여 / 휴가 사용 사번 연도 일수 요청번호 / 인사 요약 / 도움말"
+      }
+    },
+    "required": [
+      "query"
+    ],
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "answer": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "answer",
+      "data"
+    ],
+    "additionalProperties": false
+  },
+  "tags": [
+    "hrms",
+    "인사",
+    "직원",
+    "부서",
+    "연차",
+    "휴가",
+    "잔여",
+    "등록",
+    "조회"
+  ],
+  "selection_rules": [
+    {
+      "pattern": "^(?i:hrms)\\s+(?P<query>.{1,300})$",
+      "fields": {
+        "query": "string"
+      }
+    }
+  ],
+  "examples": [
+    {
+      "prompt": "HRMS 인사 요약",
+      "input": {
+        "query": "인사 요약"
+      },
+      "output": {
+        "answer": "등록 직원은 총 0명입니다.",
+        "data": {
+          "total": 0,
+          "departments": []
+        }
+      }
+    },
+    {
+      "prompt": "HRMS 부서 가상팀 인원",
+      "input": {
+        "query": "부서 가상팀 인원"
+      },
+      "output": {
+        "answer": "가상팀 인원은 0명입니다.",
+        "data": {
+          "department": "가상팀",
+          "count": 0
+        }
+      }
+    }
+  ],
+  "limits": {
+    "timeout_seconds": 30,
+    "memory_mb": 256,
+    "cpu": 1
+  }
+}
