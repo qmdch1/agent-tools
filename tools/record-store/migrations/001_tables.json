@@ -1,0 +1,14 @@
+[
+  {
+    "name": "records",
+    "columns": {
+      "record_key": "text",
+      "record_value": "text"
+    },
+    "indexes": [
+      [
+        "record_key"
+      ]
+    ]
+  }
+]

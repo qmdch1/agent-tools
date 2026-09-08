@@ -29,3 +29,10 @@ stateless 프로그램에는 별도의 Dockerfile, Compose 또는 DB migration�
 각 프로그램에 필요한 실행 컨테이너는 Foundry가 신뢰된 템플릿으로 구성합니다.
 
 `csv-statistics`는 초기 표준 예제이며 실제 LLM이 생성했다고 표시하지 않습니다.
+
+`record-store`는 중앙 DB에 작은 문자열 기록을 저장·조회하는 직접 작성한 예제입니다.
+`requires_db=true`인 프로그램을 설치할 때 Foundry Worker가 메인 중앙 PostgreSQL에
+전용 `tool_<program UUID hex>` 스키마와 실행 계정을 추가합니다. 테이블/일반 인덱스 정의는
+manifest와 migrations에 저장하고, 연결 정보는 메인 DB에서 암호화해 관리합니다.
+다른 메인 서버에 설치하면 그 서버 중앙 DB에 스키마가 생성됩니다. 실제 데이터는 Git과
+함께 전송되지 않으며 별도 DB 백업으로 복구합니다.
