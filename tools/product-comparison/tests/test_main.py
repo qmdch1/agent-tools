@@ -1,5 +1,8 @@
+import os
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 
+import psycopg
 import pytest
 from app.main import run
 
@@ -121,3 +124,67 @@ def test_bad_options(option):
     data["payload"].update(option)
     with pytest.raises(ValueError):
         run(data)
+
+
+def test_save_get_roundtrip_and_missing():
+    data = sample()
+    result = run(data)
+    saved = run({"payload": {"action": "get", "compare_id": result["compare_id"]}})
+    assert saved == {
+        "compare_id": result["compare_id"],
+        "found": True,
+        "request": data["payload"],
+        "result": result,
+    }
+    missing = run({"payload": {"action": "get", "compare_id": "0" * 64}})
+    assert missing["found"] is False and missing["result"] is None
+
+
+def test_concurrent_save_is_idempotent_and_changed_input_new_snapshot():
+    data = sample()
+    data["payload"]["products"][0]["id"] = "concurrent"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: run(data), range(4)))
+    assert all(result == results[0] for result in results)
+    with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+        assert (
+            conn.execute(
+                "SELECT count(*) FROM comparisons WHERE compare_id=%s", (results[0]["compare_id"],)
+            ).fetchone()[0]
+            == 1
+        )
+    data["payload"]["products"][0]["sources"][0]["checked_at"] = "2026-09-09"
+    assert run(data)["compare_id"] != results[0]["compare_id"]
+
+
+def test_list_bounded_and_invalid_input_not_saved():
+    result = run(sample())
+    listing = run({"payload": {"action": "list", "limit": 100}})
+    assert result["compare_id"] in [item["compare_id"] for item in listing["comparisons"]]
+    assert len(run({"payload": {"action": "list", "limit": 1}})["comparisons"]) == 1
+    assert run({"payload": {"action": "list", "offset": 10000}})["comparisons"] == []
+    with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+        before = conn.execute("SELECT count(*) FROM comparisons").fetchone()[0]
+    data = sample()
+    data["payload"]["products"][0]["sources"][0]["url"] = "bad"
+    with pytest.raises(ValueError):
+        run(data)
+    with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+        assert conn.execute("SELECT count(*) FROM comparisons").fetchone()[0] == before
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):
+            conn.execute("SELECT * FROM agent.programs LIMIT 1")
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"action": "drop"},
+        {"action": "get", "compare_id": "' OR 1=1"},
+        {"action": "list", "limit": True},
+        {"action": "list", "offset": -1},
+        {"action": "list", "sql": "SELECT 1"},
+    ],
+)
+def test_storage_input_validation(payload):
+    with pytest.raises(ValueError):
+        run({"payload": payload})

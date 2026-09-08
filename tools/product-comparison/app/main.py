@@ -1,10 +1,16 @@
 """Compare supplied, sourced specifications; never retrieve or infer product facts."""
 
+import hashlib
 import json
 import math
+import os
+import re
 import sys
 from datetime import date
 from urllib.parse import urlsplit
+
+import psycopg
+from psycopg.types.json import Jsonb
 
 
 def require(condition, message):
@@ -24,7 +30,7 @@ def value_ok(value, kind):
     return text(value, 1000)
 
 
-def run(input_data: dict) -> dict:
+def compare(input_data: dict) -> dict:
     require(isinstance(input_data, dict) and set(input_data) == {"payload"}, "Expected payload")
     data = input_data["payload"]
     require(isinstance(data, dict), "Payload must be an object")
@@ -136,6 +142,79 @@ def run(input_data: dict) -> dict:
         "matched_count": len(matches),
         "returned_count": min(limit, len(matches)),
         "excluded": excluded,
+    }
+
+
+def run(input_data: dict) -> dict:
+    require(isinstance(input_data, dict) and set(input_data) == {"payload"}, "Expected payload")
+    data = input_data["payload"]
+    require(isinstance(data, dict), "Payload must be an object")
+    action = data.get("action", "compare")
+    require(action in ("compare", "get", "list"), "Unknown action")
+    if action == "compare":
+        payload = {k: v for k, v in data.items() if k != "action"}
+        result = compare({"payload": payload})
+        canonical = json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, allow_nan=False, separators=(",", ":")
+        )
+        require(len(canonical.encode()) <= 500000, "Comparison exceeds 500000 bytes")
+        compare_id = hashlib.sha256(canonical.encode()).hexdigest()
+        result = {**result, "compare_id": compare_id}
+        with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+            conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || ':' || %s, 0))",
+                (compare_id,),
+            )
+            rows = conn.execute(
+                "SELECT request_data, result_data FROM comparisons WHERE compare_id=%s LIMIT 2", (compare_id,)
+            ).fetchall()
+            require(len(rows) <= 1, "Duplicate comparison requires reconciliation")
+            if rows:
+                require(rows[0][0] == payload, "Comparison identity conflict")
+                return rows[0][1]
+            conn.execute(
+                "INSERT INTO comparisons(compare_id, request_data, result_data, created_at) VALUES (%s,%s,%s,now())",
+                (compare_id, Jsonb(payload), Jsonb(result)),
+            )
+        return result
+    if action == "get":
+        require(set(data) == {"action", "compare_id"}, "Get requires compare_id only")
+        compare_id = data["compare_id"]
+        require(
+            isinstance(compare_id, str) and re.fullmatch(r"[0-9a-f]{64}", compare_id), "Invalid compare_id"
+        )
+        with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+            rows = conn.execute(
+                "SELECT request_data, result_data FROM comparisons WHERE compare_id=%s LIMIT 2", (compare_id,)
+            ).fetchall()
+        require(len(rows) <= 1, "Duplicate comparison requires reconciliation")
+        return {
+            "compare_id": compare_id,
+            "found": bool(rows),
+            "request": rows[0][0] if rows else None,
+            "result": rows[0][1] if rows else None,
+        }
+    require(set(data) <= {"action", "limit", "offset"}, "Unknown list option")
+    limit, offset = data.get("limit", 20), data.get("offset", 0)
+    require(type(limit) is int and 1 <= limit <= 100, "Invalid list limit")
+    require(type(offset) is int and 0 <= offset <= 10000, "Invalid list offset")
+    with psycopg.connect(os.environ["FOUNDRY_TOOL_DATABASE_URL"]) as conn:
+        rows = conn.execute(
+            "SELECT compare_id,created_at,result_data->>'matched_count',result_data->>'returned_count' FROM comparisons ORDER BY created_at DESC,compare_id LIMIT %s OFFSET %s",
+            (limit + 1, offset),
+        ).fetchall()
+    return {
+        "comparisons": [
+            {
+                "compare_id": row[0],
+                "created_at": row[1].isoformat(),
+                "matched_count": int(row[2]),
+                "returned_count": int(row[3]),
+            }
+            for row in rows[:limit]
+        ],
+        "has_more": len(rows) > limit,
+        "offset": offset,
     }
 
 
