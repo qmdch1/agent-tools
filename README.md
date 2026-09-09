@@ -1,3 +1,5 @@
+[메인 프로그램 · agent-foundry](https://github.com/qmdch1/agent-foundry) | [서브 프로그램 · agent-tools](https://github.com/qmdch1/agent-tools)
+
 # Agent Tools
 
 이 저장소는 여러 Agent Foundry 메인 인스턴스가 함께 검색하는 프로그램 공유 저장소입니다.
